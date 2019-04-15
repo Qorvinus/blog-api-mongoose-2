@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 mongoose.Promise = global.Promise;
 
 const { PORT, DATABASE_URL } = require("./config");
-const { Blogposts } = require("./models");
+const { Blogposts, Authors } = require("./models");
 
 const app = express();
 
@@ -16,7 +16,8 @@ app.use(express.json());
 app.use(morgan('common'));
 
 app.get("/posts", (req, res) => {
-  Blogposts.find()
+  Blogposts
+    .find()
     .then(blogposts => {
       res.json({
         blogposts: blogposts.map(blogposts => blogposts.serialize())
@@ -49,7 +50,8 @@ app.post("/posts", (req, res) => {
     }
   }
 
-  Blogposts.create({
+  Blogposts
+    .create({
     title: req.body.title,
     content: req.body.content,
     author: req.body.author
@@ -84,7 +86,8 @@ app.put("/posts/:id", (req, res) => {
 });
 
 app.delete("/posts/:id", (req, res) => {
-  Blogposts.findByIdAndRemove(req.body.id)
+  Blogposts
+    .findByIdAndRemove(req.body.id)
     .then(blogposts => res.status(204).end())
     .catch(err => res.status(500).json({ message: "Internal server error" }));
 });
@@ -92,6 +95,101 @@ app.delete("/posts/:id", (req, res) => {
 app.use("*", (req, res) => {
   res.status(404).json({ message: "Not Found" });
 });
+
+app.get('/authors', (req, res) => {
+  Authors
+    .find()
+    .then(authors => {
+      res.json(authors.map(author => {
+        return {
+          id: author._id,
+          name: `${author.firstName} ${author.lastName}`,
+          userName: author.userName
+        };
+      }));
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+})
+
+app.post('/authors', (req, res) => {
+  const requiredFields = ['firstName', 'lastName', 'userName'];
+  requiredFields.forEach(field => {
+    if(!(field in req.body)) {
+      const message = `Missing \"${field}\" in request body`;
+      console.error(message);
+      return res.status(400).send(message);
+    }
+    Authors
+      .create({
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        userName: req.body.userName
+      })
+      .then(author => res.status(201).json({
+        _id: author.id,
+        name: `${author.firstName} ${author.lastName}`,
+        userName: author.userName
+      }))
+      .catch(err => {
+        console.error(err);
+        res.status(500).json({ error: "Internal server error" });
+      });
+  });
+})
+
+app.put('/authors/:id', (req, res) => {
+  if (!(req.paras.id && req.body.id && req.params.id === req.body.id)) {
+    const message = `Request path id (${req.params.id}) and request body id (${req.body.id}) must match`;
+    console.error(message);
+    res.status(500).json({ message: message });
+  }
+  const toUPdate = {};
+  const updateableFields = ['firstName', 'lastName', 'userName'];
+  updateableFields.forEach(field => {
+    if (field in req.body) {
+      toUPdate[field] = req.body[field];
+    };
+  });
+  Authors
+    .findOne({ userName: toUPdate.userName || '', _id: { $ne: req.params.id } })
+    .then(author => {
+      if(author) {
+        const message = "User name taken";
+        console.error(message);
+        return res.status(400).send(message);
+      }
+      Authors
+        .findByIdAndUpdate(req.params.id, { $set: toUPdate }, { new: true })
+        .then(updatedAuthor => {
+          res.status(200).json({
+            id: updatedAuthor.id,
+            name: `${updatedAuthor.firstName} ${updatedAuthor.lastName}`,
+            userName: updatedAuthor.userName
+          });
+        })
+        .catch(err => res.status(500).json({ message: err }));
+    });
+});
+
+app.delete('/authors/:id', (req, res) => {
+  Blogposts
+    .remove({ author: req.params.id })
+    .then(() => {
+      Authors
+        .findByIdAndRemove(req.params.id)
+        .then(() => {
+          console.log(`Deleted blog posts by the author with matching id of: \"${req.params.id}\"`);
+          res.status(204).end();
+        });
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+})
 
 let server;
 
@@ -117,7 +215,6 @@ function runServer(databaseUrl, port  = PORT) {
   });
 }
 
-//write closeServer and continue
 function closeServer() {
   return mongoose.disconnect().then(() => {
     return new Promise((resolve, reject) => {
