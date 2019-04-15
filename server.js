@@ -54,7 +54,8 @@ app.post("/posts", (req, res) => {
     .create({
     title: req.body.title,
     content: req.body.content,
-    author: req.body.author
+    author: req.body.author,
+    comments: req.body.comments
   })
     .then(blogposts => res.status(201).json(blogposts.serialize()))
     .catch(err => {
@@ -65,7 +66,7 @@ app.post("/posts", (req, res) => {
 
 app.put("/posts/:id", (req, res) => {
   if (!(req.params.id && req.body.id && req.params.id === req.body.id)) {
-    const message = `Request path id (${req.params.id}) and request body id (${req.body.id}) must match`;
+    const message = `Request path id \"${req.params.id}\" and request body id \"${req.body.id}\" must match`;
     console.error(message);
     return res.status(500).json({ message: message });
   }
