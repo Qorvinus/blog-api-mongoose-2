@@ -1,0 +1,12 @@
+{
+  "name": "blog-api-mongoose-2",
+  "version": "1.0.0",
+  "description": "blog-api-mongoose-2",
+  "main": "server.js",
+  "scripts": {
+    "test": "mocha",
+    "start": "node server.js"
+  },
+  "author": "Xiong Moua",
+  "license": "ISC"
+}
