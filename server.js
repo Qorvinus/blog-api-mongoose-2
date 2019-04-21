@@ -39,28 +39,47 @@ app.get("/posts/:id", (req, res) => {
     });
 });
 
-app.post("/posts", (req, res) => {
-  const requiredFields = ["title", "content", "author"];
-  for (let i = 0; i < requiredFields.length; i++) {
-  const field = requiredFields[i];
-  if (!(field in req.body)) {
-    const message = `Missing \"${field}\" in request body`;
-    console.error(message);
-    return res.status(500).send(message);
-    }
-  }
 
-  Blogposts
-    .create({
-    title: req.body.title,
-    content: req.body.content,
-    author: req.body.author,
-    comments: req.body.comments
-  })
-    .then(blogposts => res.status(201).json(blogposts.serialize()))
+app.post('/posts', (req, res) => {
+  const requiredFields = ['title', 'content', 'author_id'];
+  requiredFields.forEach(field => {
+    if (!(field in req.body)) {
+      const message = `Missing \"${field}\" in request body`;
+      console.error(message);
+      return.res.status(400).send(message);
+    }
+  });
+
+  Author
+    .findById(req.body.author_id)
+    .then(author => {
+      if (author) {
+        Blogposts
+          .create({
+            title: req.body.title,
+            content: req.body.content,
+            author: req.body.id
+          })
+          .then(blogPosts => res.status(201).json({
+            id: blogPosts.id,
+            author: `${author.firstName} ${author.lastName}`,
+            content: blogPosts.content,
+            title: blogPosts.title,
+            comments: blogPosts.comments
+          }))
+          .catch(err => {
+            console.error(err);
+            res.status(500).json({ error: 'Internal server error' });
+          });
+      } else {
+          const message = "Author not found";
+          console.error(message);
+          return res.status(400).send(message);
+      }
+    })
     .catch(err => {
       console.error(err);
-      res.status(400).json({ message: "Internal server error" });
+      res.status(500).json({ error: 'Internal server error' });
     });
 });
 
@@ -98,7 +117,7 @@ app.use("*", (req, res) => {
 });
 
 app.get('/authors', (req, res) => {
-  Authors
+  Author
     .find()
     .then(authors => {
       res.json(authors.map(author => {
@@ -123,7 +142,7 @@ app.post('/authors', (req, res) => {
       console.error(message);
       return res.status(400).send(message);
     }
-    Authors
+    Author
       .create({
         firstName: req.body.firstName,
         lastName: req.body.lastName,
@@ -154,7 +173,7 @@ app.put('/authors/:id', (req, res) => {
       toUPdate[field] = req.body[field];
     };
   });
-  Authors
+  Author
     .findOne({ userName: toUPdate.userName || '', _id: { $ne: req.params.id } })
     .then(author => {
       if(author) {
@@ -162,7 +181,7 @@ app.put('/authors/:id', (req, res) => {
         console.error(message);
         return res.status(400).send(message);
       }
-      Authors
+      Author
         .findByIdAndUpdate(req.params.id, { $set: toUPdate }, { new: true })
         .then(updatedAuthor => {
           res.status(200).json({
@@ -179,7 +198,7 @@ app.delete('/authors/:id', (req, res) => {
   Blogposts
     .remove({ author: req.params.id })
     .then(() => {
-      Authors
+      Author
         .findByIdAndRemove(req.params.id)
         .then(() => {
           console.log(`Deleted blog posts by the author with matching id of: \"${req.params.id}\"`);

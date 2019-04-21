@@ -8,7 +8,7 @@ const authorSchema = mongoose.Schema({
   firstName: 'string',
   lastName: 'string',
   userName: {
-    ttype: 'string',
+    type: 'string',
     unique: true
   };
 })
@@ -44,6 +44,8 @@ blogSchema.methods.serialize = function() {
   };
 };
 
+let Author = mongoose.model("Author", authorSchema);
+
 const Blogposts = mongoose.model("Blogposts", blogSchema);
 
-module.exports = { Blogposts };
+module.exports = { Blogposts, Author };
